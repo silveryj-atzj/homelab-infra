@@ -1,5 +1,82 @@
 # homelab-infra
 
+一套小型自托管家庭实验室的**基础设施即代码**：Proxmox 容器、Docker 服务、Tailscale 组网、Cloudflare 边缘，以及 Git 驱动的部署链路。
+
+> 这是我私有基础设施仓库的**脱敏公开版**。主机名、IP、token、密码都已替换为占位符，但结构与运维逻辑是真实的。
+
+## 这是什么
+
+一台运行 Proxmox VE 的服务器，拆成若干 LXC 容器：
+
+| LXC | 角色 | 主要服务 |
+|---|---|---|
+| gateway | 公网入口 + 反向代理 | Caddy、cloudflared、Portainer |
+| web | 网站与 Git | nginx + PHP-FPM（WordPress）、MariaDB、Redis、phpMyAdmin、Gitea、Portainer |
+| homepage | 面板 | Homepage、Portainer |
+| ai | 推理与工具 | llama.cpp、embedding、Open WebUI、SillyTavern、SearXNG、Workers AI 代理、Telegram bot、Portainer |
+| samba | 存储 | 大容量 HDD 上的 SMB 共享 |
+
+合计约 19 个容器，全部由本仓库中的 compose 文件或简单构建上下文定义。
+
+## 目录结构
+
+```
+caddy/        公网入口路由（按 Host 分流）
+homepage/     面板配置（服务、小组件）
+lemp/         WordPress 栈（compose、PHP Dockerfile、nginx 配置）
+gitea/        自建 Git
+ai-stack/     推理与工具 compose、Telegram bot、Workers AI 代理
+infra-hook/   部署接收器：webhook 处理 + 各服务的部署脚本
+```
+
+## 部署是怎么工作的
+
+```
+git push
+  → Gitea webhook
+  → infra-hook（宿主机 systemd，:9001，带密钥路径）
+  → 服务器端 clone 内 git pull
+  → 只把变更的配置推进对应 LXC（pct push）
+  → 按需热重载 / 重启
+```
+
+静态站（Astro）在一次性 `node:20-alpine` 容器里构建，产物直接复制到 Web 根目录。另有一条链路服务 GitHub 上的仓库：GitHub Actions 的自托管 Runner 打包源码后 POST 到同一个接收器。
+
+## 快速开始
+
+1. 复制 `.env.example` → `.env`，填入真实值。
+2. 替换占位符：IP（`10.0.0.x`）、域名（`example.com` / `example.ts.net`）、容器 ID。
+3. 按需启动：
+
+```bash
+cd lemp && docker compose up -d
+cd ../gitea && docker compose up -d
+cd ../ai-stack && docker compose up -d
+```
+
+4. 在宿主机安装部署接收器（详见 `infra-hook/`）。
+
+## 设计原则
+
+- **一切进 Git**：compose、代理配置、部署脚本、面板配置。
+- **最小公网暴露**：只有两个网站和一个 webhook 路径能从公网访问，其余全在 tailnet 内。
+- **不记端口**：服务通过 Tailscale MagicDNS / Services 以域名访问。
+- **共享 embedding 服务**：多个 AI 前端复用同一个向量服务，避免重复建索引。
+- **密钥不进 Git**：仓库里只有占位符，真实值放在 `.env` 或宿主机文件中。
+
+## 安全说明
+
+- 本仓库**不含**任何凭据、token、内网主机名或地址。
+- `.env` 已被 git 忽略。
+- 公网入口在 Cloudflare Tunnel 之后；管理界面由 Cloudflare Access 保护。
+
+## 许可
+
+MIT
+
+---
+
+# homelab-infra (English)
 Infrastructure-as-code for a small self-hosted homelab: Proxmox containers, Docker services, Tailscale networking, Cloudflare edge, and Git-driven deployment.
 
 > This is a **sanitized public copy** of my private infrastructure repository.
