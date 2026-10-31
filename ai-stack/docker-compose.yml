@@ -1,0 +1,204 @@
+services:
+  # ---------------------------------------------------------------------------
+  # 1. llama.cpp ä¸»æ¨¡åž‹ (Ternary Bonsai 2 9B, Q2_0 + Q8_0 è§†è§‰æŠ•å½±)
+  # ---------------------------------------------------------------------------
+  llama-server:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: llama-server
+    restart: unless-stopped
+    cpuset: "0-3"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./models:/models
+      - ./llama-data:/root/.cache
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+      - /usr/lib/x86_64-linux-gnu/libcuda.so:/usr/lib/x86_64-linux-gnu/libcuda.so:ro
+      - /usr/lib/x86_64-linux-gnu/libcuda.so.1:/usr/lib/x86_64-linux-gnu/libcuda.so.1:ro
+      - /usr/lib/x86_64-linux-gnu/libnvidia-ml.so:/usr/lib/x86_64-linux-gnu/libnvidia-ml.so:ro
+      - /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1:ro
+      - /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so:/usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so:ro
+      - /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1:ro
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
+    # æƒé‡å…¨ä¸Š GPUï¼›è§†è§‰æŠ•å½±æ”¾ CPUï¼›KV q4ï¼›32K ä¸Šä¸‹æ–‡ï¼›å•æ§½ï¼›å…³ thinking
+    command:
+      - --model
+      - /models/Bonsai2-9B/Ternary-Bonsai-2-9B-Q2_0.gguf
+      - --mmproj
+      - /models/Bonsai2-9B/Ternary-Bonsai-2-9B-mmproj-Q8_0.gguf
+      - --no-mmproj-offload
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - -ngl
+      - "99"
+      - -c
+      - "32768"
+      - -np
+      - "1"
+      - -n
+      - "512"
+      - -ctk
+      - q4_0
+      - -ctv
+      - q4_0
+      - -ub
+      - "256"
+      - -t
+      - "4"
+      - --jinja
+      - --chat-template-kwargs
+      - '{"enable_thinking": false}'
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # ---------------------------------------------------------------------------
+  # 2. llama.cpp embedding æœåŠ¡ (bge-m3, CPU)
+  #    ç»™ SillyTavern çš„å‘é‡ RAG ç”¨ï¼Œä¹Ÿå¯ç»™ Open WebUI å½“ embedding åŽç«¯
+  # ---------------------------------------------------------------------------
+  llama-embed:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: llama-embed
+    restart: unless-stopped
+    ports:
+      - "8090:8080"
+    volumes:
+      - ./models:/models
+    environment:
+      - LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
+    command:
+      - --model
+      - /models/embed/bge-m3-q8_0.gguf
+      - --embeddings
+      - --pooling
+      - mean
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - -ngl
+      - "0"
+      - -t
+      - "2"
+      - -c
+      - "8192"
+
+  # ---------------------------------------------------------------------------
+  # 3. SearXNG - è‡ªå»ºå…ƒæœç´¢ï¼ˆopen-webui è”ç½‘æœç´¢åŽç«¯ï¼Œæ— éœ€ API keyï¼‰
+  # ---------------------------------------------------------------------------
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    restart: unless-stopped
+    ports:
+      - "8888:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://searxng:8080/
+      - SEARXNG_SECRET=${SEARXNG_SECRET}
+      - UWSGI_WORKERS=2
+      - UWSGI_THREADS=4
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "1"
+
+  # ---------------------------------------------------------------------------
+  # 4. SillyTavern - è§’è‰²æ‰®æ¼”å‰ç«¯ï¼ˆå…±ç”¨åŒä¸€ llama-server åŽç«¯ï¼‰
+  # ---------------------------------------------------------------------------
+  sillytavern:
+    image: ghcr.io/sillytavern/sillytavern:latest
+    container_name: sillytavern
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./sillytavern/config:/home/node/app/config
+      - ./sillytavern/data:/home/node/app/data
+    environment:
+      - TZ=Asia/Kuala_Lumpur
+
+  # ---------------------------------------------------------------------------
+  # 5. Open WebUI
+  # ---------------------------------------------------------------------------
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    volumes:
+      - ./open-webui-data:/app/backend/data
+      - ./hf-cache:/root/.cache/huggingface
+    environment:
+      - OPENAI_API_BASE_URL=http://llama-server:8080/v1
+      - OPENAI_API_KEY=sk-no-key-required
+      - ENABLE_SIGNUP=true
+      - ENABLE_WEB_SEARCH=true
+      - WEB_SEARCH_ENGINE=searxng
+      - SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>
+      - WEB_SEARCH_RESULT_COUNT=5
+      - WEB_SEARCH_CONCURRENT_REQUESTS=2
+      - ENABLE_OPENAI_API_PASSTHROUGH=true
+    depends_on:
+      - llama-server
+      - searxng
+
+  # ---------------------------------------------------------------------------
+  # 6. Telegram botï¼ˆpolling æˆ– webhook æ¨¡å¼ï¼‰
+  # ---------------------------------------------------------------------------
+  telegram-bot:
+    build: ./tg-bot
+    container_name: telegram-bot
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - LLAMA_URL=http://llama-server:8080/v1/chat/completions
+      - MODEL_NAME=/models/Bonsai2-9B/Ternary-Bonsai-2-9B-Q2_0.gguf
+      - MAX_TOKENS=512
+      - WEBHOOK_BASE_URL=https://tg.example.com
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - ST_BASE=http://sillytavern:8000
+      - ST_HOST=ai-sillytavern.example.ts.net
+      - ST_MODEL=bonsai-9b
+      - ST_REVERSE_PROXY=http://llama-server:8080/v1
+      - IMAGE_API=http://cf-ai-proxy:8080/v1/images/generations
+      - IMAGE_MODEL=@cf/black-forest-labs/flux-1-schnell
+      - CHAR_DIR=/st-data/default-user/characters
+      - DATA_DIR=/data
+    volumes:
+      - ./sillytavern/data:/st-data:ro
+      - ./tg-bot-data:/data
+    depends_on:
+      - llama-server
+      - open-webui
+
+  # ---------------------------------------------------------------------------
+  # 7. Cloudflare Workers AI ä»£ç†ï¼ˆOpenAI å…¼å®¹ï¼šæ–‡æœ¬ + å›¾ç‰‡ï¼‰
+  # ---------------------------------------------------------------------------
+  cf-ai-proxy:
+    build: ./cf-ai-proxy
+    container_name: cf-ai-proxy
+    restart: unless-stopped
+    ports:
+      - "8095:8080"
+    environment:
+      - CF_ACCOUNT_ID=8a278ab0df1a035b4abf587fd3222099
+      - CF_API_TOKEN=${CF_API_TOKEN}
+      - CF_IMAGE_MODEL=@cf/black-forest-labs/flux-1-schnell
+

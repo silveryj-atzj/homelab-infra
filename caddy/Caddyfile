@@ -1,0 +1,46 @@
+{
+    admin 0.0.0.0:2019 {
+        origins 0.0.0.0:2019 localhost:2019 127.0.0.1:2019
+    }
+}
+
+# ============================================================
+# 公网只暴露：WordPress / Astro / tg webhook 路径
+# ============================================================
+:80 {
+    @wp host example.com www.example.com
+    handle @wp {
+        # Cloudflare 终止 TLS，源站只有 http；显式告诉 WordPress 原始请求是 https
+        reverse_proxy 10.0.0.30:80 {
+            header_up X-Forwarded-Proto https
+            header_up X-Forwarded-Host {host}
+        }
+    }
+
+
+    @blog host blog.example.com astro.example.com
+    handle @blog {
+        root * /srv/astro
+        encode gzip
+        file_server
+    }
+
+    @tg host tg.example.com
+    handle @tg {
+        @hook path /tg/${WEBHOOK_SECRET}
+        handle @hook {
+            reverse_proxy 10.0.0.40:8443
+        }
+        respond "Not Found" 404
+    }
+
+    # tailnet 内的 Caddy 服务入口 -> 跳到 Homepage
+    @gw host gateway-caddy.example.ts.net
+    handle @gw {
+        redir https://homepage.example.ts.net 302
+    }
+
+    handle {
+        respond "Not Found" 404
+    }
+}

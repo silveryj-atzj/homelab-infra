@@ -1,0 +1,4 @@
+pve:
+  url: https://proxmox.host.or.ip:8006
+  token: api-homepage@pam!homepage
+  secret: d3737a6f-fbca-4122-a522-b3b2eb2320f1

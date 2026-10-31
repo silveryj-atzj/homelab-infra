@@ -1,0 +1,126 @@
+# href = 客户端点击（tailnet 服务域名，无端口）
+# siteMonitor / widget = 服务端请求（LAN IP，稳定）
+- 管理面板:
+    - Proxmox VE:
+        icon: proxmox.png
+        href: https://pve.example.ts.net
+        description: 虚拟化平台 · 9.2.2
+        siteMonitor: https://10.0.0.10:8006
+        widget:
+          type: proxmox
+          url: https://10.0.0.10:8006
+          username: ai@pve!agent
+          password: ${PVE_TOKEN_SECRET}
+          node: pve
+
+    - Caddy:
+        icon: caddy.png
+        href: https://gateway-caddy.example.ts.net
+        description: 反向代理 · 公网只放 WP/Astro
+        siteMonitor: http://10.0.0.20:2019/config/
+        widget:
+          type: caddy
+          url: http://10.0.0.20:2019
+
+    - Portainer (Gateway):
+        icon: portainer.png
+        href: https://gateway-portainer.example.ts.net
+        description: Docker · gateway
+        siteMonitor: https://10.0.0.20:9443
+
+    - Portainer (Web):
+        icon: portainer.png
+        href: https://web-portainer.example.ts.net
+        description: Docker · web
+        siteMonitor: https://10.0.0.30:9443
+
+    - Portainer (AI):
+        icon: portainer.png
+        href: https://ai-portainer.example.ts.net
+        description: Docker · ai
+        siteMonitor: https://10.0.0.40:9443
+
+    - Portainer (Homepage):
+        icon: portainer.png
+        href: https://homepage-portainer.example.ts.net
+        description: Docker · homepage
+        siteMonitor: https://10.0.0.31:9443
+
+    - Homepage:
+        icon: homepage.png
+        href: https://homepage.example.ts.net
+        description: 本面板
+        siteMonitor: http://10.0.0.31:3000
+
+- AI 服务:
+    - Open WebUI:
+        icon: open-webui.png
+        href: https://ai-openwebui.example.ts.net
+        description: 聊天 · RAG · 联网搜索 · 工具
+        siteMonitor: http://10.0.0.40:3000
+
+    - llama.cpp:
+        icon: mdi-chip
+        href: https://ai-llama.example.ts.net
+        description: Bonsai 2 9B · 35 t/s · 32K ctx
+        siteMonitor: http://10.0.0.40:8080/health
+
+    - AI 生图:
+        icon: mdi-image-multiple
+        href: https://ai.example.ts.net:8096/ui
+        description: CF Workers AI · flux 文生图（也可在聊天里直接要图）
+        siteMonitor: http://10.0.0.40:8095/ui
+
+    - SillyTavern:
+        icon: sillytavern.png
+        href: https://ai-sillytavern.example.ts.net
+        description: 角色扮演
+        siteMonitor: http://10.0.0.40:8001
+
+    - SearXNG:
+        icon: searxng.png
+        href: https://ai-searxng.example.ts.net
+        description: 元搜索引擎 · OI 联网后端
+        siteMonitor: http://10.0.0.40:8888
+
+- 公网站点:
+    - WordPress:
+        icon: wordpress.png
+        href: https://example.com
+        description: 主站 · 动态 · Cloudflare
+        siteMonitor: https://example.com
+
+    - Astro Blog:
+        icon: mdi-language-html5
+        href: https://blog.example.com
+        description: 静态站 · Astro
+        siteMonitor: https://blog.example.com
+
+- 开发与同步:
+    - Gitea:
+        icon: gitea.png
+        href: https://web-gitea.example.ts.net
+        description: 自建 Git · infra/web-astro/web-wordpress
+        siteMonitor: http://10.0.0.30:3001
+
+    - Astro 源码:
+        icon: mdi-source-branch
+        href: https://web-gitea.example.ts.net/gituser/web-astro
+        description: 博客源码仓库
+
+    - Infra 源码:
+        icon: mdi-source-branch
+        href: https://web-gitea.example.ts.net/gituser/infra
+        description: 内网服务配置仓库
+
+- 数据与存储:
+    - phpMyAdmin:
+        icon: phpmyadmin.png
+        href: https://web-phpmyadmin.example.ts.net
+        description: MySQL 管理 · web
+        siteMonitor: http://10.0.0.30:8080
+
+    - Samba:
+        icon: mdi-folder-network
+        href: smb://10.0.0.21
+        description: 文件共享 · smb://10.0.0.21

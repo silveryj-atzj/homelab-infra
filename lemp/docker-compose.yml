@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  webserver:
+    image: nginx:latest
+    container_name: web_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./html:/var/www/html
+      - ./nginx-conf:/etc/nginx/conf.d
+    depends_on:
+      - php
+
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile-php
+    container_name: web_php
+    restart: unless-stopped
+    volumes:
+      - ./html:/var/www/html
+
+  database:
+    image: mariadb:10.11
+    container_name: web_mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: home_site
+      MYSQL_USER: gituser
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: web_phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: database
+      UPLOAD_LIMIT: 100M
+    depends_on:
+      - database
+
+  redis:
+      image: redis:latest
+      container_name: web_redis
+      restart: unless-stopped
+      command: redis-server --appendonly yes --requirepass "${DB_PASSWORD}"
+      volumes:
+        - redis_data:/data
+
+volumes:
+  web_html:
+  web_nginx_conf:
+  mariadb_data:
+  redis_data:
+
